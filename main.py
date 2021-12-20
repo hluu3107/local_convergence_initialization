@@ -1,5 +1,35 @@
 from graph_helper import *
 
+def test_cycles_routine(n,q):
+	G, adj_matrix,lookup = generate_graph(n,q)
+	dfs_basis,dfs_fedges,dfs_A = fundamental_cycle_basis(G,lookup)
+	bfs_basis,bfs_fedges,bfs_A = get_bfs_basis(G,0, lookup)
+	bfs_newbasis = change_basis(bfs_basis)
+	dfs_newbasis = change_basis(dfs_basis)
+	new_dfs_A = get_edge_cyclebasis(dfs_newbasis, lookup)
+	new_bfs_A = get_edge_cyclebasis(bfs_newbasis, lookup)
+
+
+	flow_value = 1
+	n, m = len(adj_matrix), len(lookup)
+	k = m-n+1
+	source, sink = 0, n-1
+	outflow = {source: flow_value, sink: -flow_value}
+	nodes = [n for n in adj_matrix.keys()]
+	edges = []
+	for u,neighbors in adj_matrix.items():
+		for v in neighbors:
+			if u<v:
+				edges.append((u,v))
+				
+	psi2 = laminar_flow_init(nodes,edges,outflow,lookup)
+	x2 = [0]*k
+	alpha2 = max(np.absolute(function(A,x2,psi2)))
+	r2,i2 = iter_newton(new_bfs_A,x2,psi2)
+	print(i2)
+	r2,i2 = iter_newton(new_dfs_A,x2,psi2)
+	print(i2)
+
 def test_routine(minV,maxV,prob):
 	# 3 cycles graph
 	# adj_matrix = {0:[1,2,3], 1:[0,2,3], 2:[0,1,3], 3:[0,1,2]}
@@ -111,7 +141,7 @@ def testfromfile(f):
 	r4,i4 = iter_newton(A,x4,psi4)
 	print(i4)
 
-def main():
+def main1():
 	f = open("result.txt", "a")
 	for n in range(10,200,10):
 		numtest = 10
@@ -130,9 +160,9 @@ def main():
 		f.write('\n')
 	f.close()
 			
-def main1():
-	f = 'graph1.txt'
-	testfromfile(f)
+def main():
+	test_cycles_routine(10,0.3)
+
 
 if __name__ == '__main__':
     main()

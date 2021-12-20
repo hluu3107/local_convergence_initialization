@@ -5,7 +5,7 @@ from itertools import *
 from gurobipy import *
 from nr import *
 np.set_printoptions(threshold=sys.maxsize)
-graph_counter = 1
+
 def randomGraph(n,p):
 	edges = combinations(range(n), 2)
 	G = nx.Graph()
@@ -80,10 +80,25 @@ def random_generation_graph(minn,maxn, q):
 				lookup[(u,v)] = counter
 				counter+=1
 	fcycles,fedges,A = fundamental_cycle_basis(G,lookup)
-	write_graph_to_file(adj_matrix)
+	graph_counter = 1
+	write_graph_to_file(adj_matrix,graph_counter)
 
 
-	return G, adj_matrix, A, lookup, fedges
+	return G, adj_matrix, A, lookup, fcycles, fedges
+
+def generate_graph(n,q):
+	G = randomGraph(n,q)
+	while not nx.is_biconnected(G):
+		G = randomGraph(n,q)
+	adj_matrix=nx.convert.to_dict_of_lists(G)
+	lookup = {}
+	counter = 0
+	for u,neighbors in adj_matrix.items():
+		for v in neighbors:
+			if u<v:
+				lookup[(u,v)] = counter
+				counter+=1
+	return G,adj_matrix, lookup
 
 def stnumber(G,source,sink):
 	n = G.number_of_nodes()
@@ -125,7 +140,7 @@ def stnumber(G,source,sink):
 		st[v] = cur
 	return st 
 
-def write_graph_to_file(A):
+def write_graph_to_file(A,graph_counter):
 	filename = "graph" + str(graph_counter) + ".txt"
 	f = open(filename, "w")
 	for key,value in A.items():
@@ -157,29 +172,10 @@ def readfromfile(file):
 			if u<v:
 				lookup[(u,v)] = counter
 				counter+=1
-	print(lookup)
-	# counter = 0
-	# for cycle in cycles:
-	# 	cur = []
-	# 	for i in range(0,len(cycle)-1):
-	# 		u,v = cycle[i],cycle[i+1]
-	# 		cur.append((u,v))
-	# 		if u<v:
-	# 			A[lookup[(u,v)]][counter]=1
-	# 		else:
-	# 			A[lookup[(v,u)]][counter]=-1
-	# 	first,last = cycle[-1],cycle[0]
-	# 	cur.append((first,last))
-	# 	if first < last:
-	# 		A[lookup[(first,last)]][counter]=1
-	# 	else:
-	# 		A[lookup[(last,first)]][counter]=-1
-	# 	counter+=1
-	# 	basis.append(cur)
 	fcycles,fedges,A = fundamental_cycle_basis(G,lookup)
 
 	#print(A)
-	return G, adj_matrix, A, lookup, fedges
+	return G, adj_matrix, A, lookup, fcycles, fedges
 
 def dfs(G,source,sink):
 	n = G.number_of_nodes()
@@ -335,12 +331,82 @@ def epanet_init(nodes, edges, outflow, A, lookup, fedges):
 	psi = getPsi(flows, lookup)
 	return psi
 
-
+def change_basis(cycles):
+	curBasis = cycles.copy()
+	while True:
+		combinations = list(itertools.combinations(curBasis,2))
+		flag = False
+		for i,(c1,c2) in enumerate(combinations):
+			if len(c1)>len(c2): c1,c2 = c2, c1
+			change, newc2 = merge_cycle(c1,c2)
+			if change:
+				curBasis.remove(c2)
+				curBasis.append(newc2)
+				flag = True
+				break
+		if flag:
+			continue
+		else:
+			break
+	return curBasis
 
 def merge_cycle(c1, c2):
-	if len(c1) > c2: c1,c2 = c2,c1
 	c1, c2 = set(c1), set(c2)
 	diff = c1.symmetric_difference(c2)
-	if len(diff2)<len(diff1): diff1 = diff2
-	overlap = list(c1.intersection(c2))
+	if len(diff)<len(c2): 
+		#print("change cycle")
+		return True, list(diff)
+	return False, list(c2)
 
+def get_bfs_basis(G,source, lookup):
+	bfs_edges = list(nx.bfs_edges(G,source))
+	bfs_tree = nx.Graph()
+	bfs_tree.add_edges_from(bfs_edges)
+	m = G.number_of_edges()
+	n = G.number_of_nodes()
+	k = m-n+1
+	A = np.zeros((m,k))
+	
+	fedges = []
+	cycles = []
+	for (u,v) in list(G.edges()):
+		if (u,v) in bfs_edges or (v,u) in bfs_edges:
+			continue
+		if u>v: u,v = v,u
+		fedges.append((u,v))
+		path = nx.shortest_path(bfs_tree,u,v)
+		if not path:
+			path = nx.shortest_path(bfs_tree,v,u)
+		cycles.append(path)
+	counter = 0
+	basis = []
+	for cycle in cycles:
+		cur = []
+		for i in range(0,len(cycle)-1):
+			u,v = cycle[i],cycle[i+1]
+			cur.append((u,v))
+			if u<v:
+				A[lookup[(u,v)]][counter]=1
+			else:
+				A[lookup[(v,u)]][counter]=-1
+		first,last = cycle[-1],cycle[0]
+		cur.append((first,last))
+		if first < last:
+			A[lookup[(first,last)]][counter]=1
+		else:
+			A[lookup[(last,first)]][counter]=-1
+		counter+=1
+		basis.append(cur)
+	return basis,fedges,A
+
+def get_edge_cyclebasis(cycles, lookup):
+	A = np.zeros((len(lookup),len(cycles)))
+	counter = 0
+	for cycle in cycles:
+		cur = []
+		for (u,v) in cycle:
+			if u<v:
+				A[lookup[(u,v)]] = 1
+			else:
+				A[lookup[(v,u)]] = -1		
+	return A
