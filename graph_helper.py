@@ -61,7 +61,7 @@ def fundamental_cycle_basis(G,lookup):
 		basis.append(cur)
 	return basis,fedges,A
 
-def random_generation_graph(minn,maxn, q):
+def random_generation_graph(minn,maxn, q, graph_counter):
 	nnodes = random.randint(minn,maxn)
 	G = randomGraph(nnodes,q)
 	while not nx.is_biconnected(G):
@@ -80,7 +80,6 @@ def random_generation_graph(minn,maxn, q):
 				lookup[(u,v)] = counter
 				counter+=1
 	fcycles,fedges,A = fundamental_cycle_basis(G,lookup)
-	graph_counter = 1
 	write_graph_to_file(adj_matrix,graph_counter)
 
 
@@ -142,7 +141,7 @@ def stnumber(G,source,sink):
 
 def write_graph_to_file(A,graph_counter):
 	filename = "graph" + str(graph_counter) + ".txt"
-	f = open(filename, "w")
+	f = open('data/'+filename, "w")
 	for key,value in A.items():
 		ls = str(key) + ":"
 		ls += ','.join(str(v) for v in value)

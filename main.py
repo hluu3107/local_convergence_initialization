@@ -161,8 +161,14 @@ def main1():
 	f.close()
 			
 def main():
-	test_cycles_routine(10,0.3)
-
+	#test_cycles_routine(10,0.3)
+	graph_counter = 1
+	for n in range(10,210,10):
+		numtest = 10
+		prob = random.uniform(0.05,0.5)
+		for i in range(numtest):
+			G, adj_matrix, A, lookup, fcycles, fedges = random_generation_graph(n,n, prob, graph_counter)
+			graph_counter+=1
 
 if __name__ == '__main__':
     main()
