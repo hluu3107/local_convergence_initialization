@@ -3,25 +3,27 @@ import numpy as np
 from gurobipy import *
 
 def iter_newton(A,x,psi,imax=100,tol=1e-6):
-	iter = 1
-	bound = sum(v for v in psi if v>0)*len(A)*2
-	for i in range(imax):
+	iter = 0
+	#bound = sum(v for v in psi if v>0)*len(A)
+	bound = 2
+	#print(bound)
+	while iter<=imax:
 		J = jacobian(A,x,psi)
 		Y = function(A,x,psi)
-
-		#if Jacobian is singular
-		if np.linalg.matrix_rank(J) < len(x):
-			#print("i: ",i)
-			#print("not full rank")
-			x = solve_singular(J, Y, bound)
-			#print(x)
-		else:
-			dx = np.linalg.solve(J,-Y)
-			x = np.add(x,dx)
-		iter+=1
 		if np.linalg.norm(Y) < tol:
 			break
-	#print("numberof iterations ", iter)
+		#if Jacobian is singular
+		rankJ = np.linalg.matrix_rank(J)
+		if rankJ < len(x):
+			print("i: ",iter)
+			print("rank J: ", rankJ)
+			dx = solve_singular(J, Y, bound)
+		else:
+			dx = np.linalg.solve(J,-Y)
+		#print(np.add(np.dot(dx,J),Y))
+		x = np.add(x,dx)
+		#print(x)
+		iter+=1
 	return x,iter
 
 def ssquare(a):
@@ -43,7 +45,74 @@ def jacobian(A,x,psi):
 	J = 2*np.dot(np.dot(A.transpose(),diag_flows),A)
 	return J
 
-def solve_singular(J, Y, bound):
+def solve_singular(J,Y,bound):
+	m = Model('singular')
+	m.Params.LogToConsole = 0
+	#var
+	x = [i for i in range(len(Y))]
+	adjustments = m.addVars(x,name="adjustments", lb = -bound, ub = bound)
+	maxAdj = m.addVar(name="maxAdj")
+
+	eqs_idx = []
+	for i,row in enumerate(J):
+		if any(row)!=0:
+			eqs_idx.append(i)
+
+	#constraint Jx = -Y
+	for i in range(len(x)):
+		eq = LinExpr(J[i,:],[adjustments[j] for j in range(len(x))])
+		m.addConstr(eq==-Y[i])
+
+	#aux constraint max 
+	for i in range(len(x)):
+		m.addConstr(maxAdj>=adjustments[i])
+		m.addConstr(maxAdj>=-adjustments[i])
+
+	m.setObjective(maxAdj, GRB.MINIMIZE)
+	
+	m.update()
+	#m.display()
+	#m.write('model.lp')
+	m.optimize()
+	#print(m.status)
+	res = m.getAttr('x',adjustments)
+	return res.values()
+
+def solve_singular1(J,Y,bound):
+	m = Model('singular')
+	m.Params.LogToConsole = 0
+	#var
+	x = [i for i in range(len(Y))]
+	adjustments = m.addVars(x,name="adjustments", lb = -bound, ub = bound)
+	absAdj = m.addVars(x,name="absAdj")
+	maxAdj = m.addVar(name="maxAdj")
+
+	eqs_idx = []
+	for i,row in enumerate(J):
+		if any(row)!=0:
+			eqs_idx.append(i)
+
+	#constraint Jx = -Y
+	for i in range(len(x)):
+		eq = LinExpr(J[i,:],[adjustments[j] for j in range(len(x))])
+		m.addConstr(eq==-Y[i])
+
+	#aux constraint max 
+	for i in range(len(x)):
+		m.addConstr(absAdj[i]==abs_(adjustments[i]))
+		m.addConstr(maxAdj>=absAdj[i])
+
+	m.setObjective(maxAdj, GRB.MINIMIZE)
+	
+	m.update()
+	#m.display()
+	#m.write('model.lp')
+	m.optimize()
+	#print(m.status)
+	res = m.getAttr('x',adjustments)
+	return res.values()
+
+def solve_singular1(J, Y, bound):
 	#print('Singular J')
 	m = Model('singular')
 	m.Params.LogToConsole = 0
@@ -67,7 +136,7 @@ def solve_singular(J, Y, bound):
 	m.setObjective(maxAdj, GRB.MINIMIZE)
 	
 	m.update()
-	#m.display()
+	m.display()
 	m.optimize()
 	return adjustments.X
 

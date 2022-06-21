@@ -150,8 +150,8 @@ def write_graph_to_file(A,graph_counter):
 	f.close()
 	graph_counter = graph_counter + 1
 
-def readfromfile(file):
-	f = open(file,"r")
+def readfromfile(file,filedirectory):
+	f = open(filedirectory + file,"r")
 	adj_matrix = {}
 	for row in f:
 		if row:
@@ -171,8 +171,8 @@ def readfromfile(file):
 			if u<v:
 				lookup[(u,v)] = counter
 				counter+=1
-	fcycles,fedges,A = fundamental_cycle_basis(G,lookup)
-
+	#fcycles,fedges,A = fundamental_cycle_basis(G,lookup)
+	fcycles,fedges,A = get_bfs_basis(G,0, lookup)
 	#print(A)
 	return G, adj_matrix, A, lookup, fcycles, fedges
 
@@ -252,6 +252,8 @@ def getPsi(flows, lookup):
 	for (u,v),flow in flows.items():
 		if u>v: u,v = v,u
 		psi[lookup[(u,v)]] = flow
+		#if flow !=0:
+			#print(u,v,flow)
 	return psi
 
 def shortest_path_init(G,source,sink,flow_value,lookup):
@@ -267,6 +269,7 @@ def shortest_path_init(G,source,sink,flow_value,lookup):
 		else:
 			flows[(v,u)] = -flow_value
 	psi = getPsi(flows, lookup)
+	#print(psi)
 	return psi
 
 def laminar_flow_init(nodes, edges, outflow,lookup):

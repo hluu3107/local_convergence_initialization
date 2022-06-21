@@ -1,4 +1,5 @@
 from graph_helper import *
+import os
 
 def test_cycles_routine(n,q):
 	G, adj_matrix,lookup = generate_graph(n,q)
@@ -29,6 +30,7 @@ def test_cycles_routine(n,q):
 	print(i2)
 	r2,i2 = iter_newton(new_dfs_A,x2,psi2)
 	print(i2)
+
 
 def test_routine(minV,maxV,prob):
 	# 3 cycles graph
@@ -115,11 +117,18 @@ def shortesttest(minV,maxV,prob):
 	alpha3 = max(np.absolute(function(A,x3,psi3)))
 	r3,i3 = iter_newton(A,x3,psi3)
 
-def testfromfile(f):
-	G, adj_matrix,A, lookup,fedges = readfromfile(f)
+def readallfiles(filedirectory):
+	for filename in os.listdir(filedirectory):
+		testfromfile(filename,filedirectory)
+
+def testfromfile(f,filedirectory):
+	print(f)
+	fresults = open("result.txt", "a")
+	G, adj_matrix, A, lookup, fcycles, fedges = readfromfile(f,filedirectory)
 	#print(adj_matrix)
 	flow_value = 1
 	n, m = len(adj_matrix), len(lookup)
+	print("num vertices", n, " num edges: ", m)
 	k = m-n+1
 	source, sink = 0, n-1
 	outflow = {source: flow_value, sink: -flow_value}
@@ -134,15 +143,43 @@ def testfromfile(f):
 			if u<v:
 				edges.append((u,v))
 
+	#shortest path initialization
+	print("Shortest path init")
+	psi1 = shortest_path_init(G,source,sink,flow_value,lookup)
+	x1 = [0]*k
+	alpha1 = max(np.absolute(function(A,x1,psi1)))
+	r1,i1 = iter_newton(A,x1,psi1)
+
+	#minimize the maximum flow initialization
+	print("Minimize max flow init")
+	psi2 = min_max_flow_init(nodes, edges, outflow,lookup)
+	x2 = [0]*k
+	alpha2 = max(np.absolute(function(A,x2,psi2)))
+	r2,i2 = iter_newton(A,x2,psi2)
+	
+	
+	#laminar flow initialization
+	print("Laminar flow init")
+	psi3 = laminar_flow_init(nodes,edges,outflow,lookup)
+	x3 = [0]*k
+	alpha3 = max(np.absolute(function(A,x3,psi3)))
+	r3,i3 = iter_newton(A,x3,psi3)
+
 	#epanet init initialization
-	psi4 = epanet_init(nodes, edges, outflow, A, lookup,fedges)
+	print("Epanet init")
+	psi4 = epanet_init(nodes, edges, outflow, A, lookup, fedges)
 	x4 = [0]*k
 	alpha4 = max(np.absolute(function(A,x4,psi4)))
 	r4,i4 = iter_newton(A,x4,psi4)
-	print(i4)
+
+	result = [f,n,m,k, i1, i2, i3, i4, alpha1, alpha2, alpha3,alpha4]
+	fresults.write(','.join(str(i) for i in result))
+	fresults.write('\n')
+	fresults.close()
+	
 
 def main1():
-	f = open("result.txt", "a")
+	f = open("result_0503.txt", "a")
 	for n in range(10,200,10):
 		numtest = 10
 		prob = random.uniform(0.1,0.2)
@@ -160,15 +197,20 @@ def main1():
 		f.write('\n')
 	f.close()
 			
-def main():
+def randomgenerator():
 	#test_cycles_routine(10,0.3)
-	graph_counter = 1
-	for n in range(10,210,10):
+	graph_counter = 201
+	for n in range(210,510,10):
 		numtest = 10
-		prob = random.uniform(0.05,0.5)
+		prob = random.uniform(0.01,0.1)
 		for i in range(numtest):
 			G, adj_matrix, A, lookup, fcycles, fedges = random_generation_graph(n,n, prob, graph_counter)
 			graph_counter+=1
+
+def main():
+	#randomgenerator()
+	filedirectory = "data4_2/"
+	readallfiles(filedirectory)
 
 if __name__ == '__main__':
     main()
